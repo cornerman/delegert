@@ -18,15 +18,13 @@ class DelegertTranslator[C <: Context](val c: C) {
   def translate(value: ValueAccessor, embeddingClass: ClassDef): Tree = {
     Option(value.typeTree.tpe) match {
       case Some(tpe) =>
-        val methods = tpe.decls.filter(_.isMethod).map(_.asMethod)
-
         val ClassDef(mods, name, tparams, Template(parents, self, body)) = embeddingClass
-        val existingMethods = body.flatMap(tree => tree match {
-          case DefDef(_, n, _, _, _, _) => Some(n)
-          case _ => None
-        }).toSet
 
-        val missingMethods = methods.filterNot(m => existingMethods.contains(m.name))
+        val methods = tpe.decls.filter(d => d.isMethod && !d.isPrivate).map(_.asMethod)
+        val existingMethods: Seq[DefDef] = body collect { case d: DefDef => d }
+        val missingMethods = methods.filterNot { m =>
+          existingMethods.exists(e => e.name == m.name && e.tparams == m.typeParams && e.vparamss == m.paramLists)
+        }
 
         val methodsImpls = missingMethods.map { method =>
           val (params, paramNames) = method.paramLists.headOption.map(_.map { param => //TODO multi paramlists
