@@ -1,17 +1,18 @@
 import org.specs2.mutable.Specification
-import delegert.delegert
 
 trait Tret {
   def a(): String
-  def b(): String
+  def b(v: Int): String
 }
 
 class TretImpl extends Tret {
   def a() = "a"
-  def b() = "b"
+  def b(v: Int) = "b" + v
 }
 
 class ExampleSpec extends Specification {
+  import delegert.delegert
+
   class TretWrap(@delegert val inner: Tret) extends Tret {
     def a() = "myA"
   }
@@ -19,6 +20,6 @@ class ExampleSpec extends Specification {
   "let delegert delegate" >> {
     val wrap = new TretWrap(new TretImpl)
     wrap.a must beEqualTo("myA")
-    wrap.b must beEqualTo("b")
+    wrap.b(1) must beEqualTo("b1")
   }
 }

@@ -68,7 +68,7 @@ class DelegertSpec extends CompileSpec {
 
   "type parameter without argument" >> {
     q"""
-      trait Tret { def a[T]: Int }
+      trait Tret { def a[T]: T }
       {
         class A(@delegert.delegert val inner: Tret) extends Tret
       }""" must compile.to(containTree(
