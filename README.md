@@ -10,11 +10,6 @@ trait Tret {
   def b(v: Int): String
 }
 
-class TretImpl extends Tret {
-  def a() = "a"
-  def b(v: Int) = "b" + v
-}
-
 object Example {
   import delegert.delegert
 
