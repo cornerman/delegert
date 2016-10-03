@@ -70,6 +70,23 @@ class DelegertSpec extends CompileSpec {
       ))
   }
 
+  //TODO: is this desired or error out?
+  "multiple delegerts" >> {
+    q"""
+      trait Tret { def a(): Int; def b(): Int }
+      trait Tret2 { def a(): Int; def c(): Int }
+      {
+        class A(@delegert.delegert val inner: Tret, @delegert.delegert val inner2: Tret2) extends Tret with Tret2
+      }""" must compile.to(containTree(
+        q"""
+          class A(val inner: Tret, val inner2: Tret2) extends Tret with Tret2 {
+            def a() = A.this.inner.a()
+            def b() = A.this.inner.b()
+            def c() = A.this.inner2.c()
+          }"""
+      ))
+  }
+
   "works with overloading" >> {
     q"""
       trait Tret { def a: Int; def a(value: Int): Int; }
