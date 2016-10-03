@@ -13,7 +13,7 @@ class DelegertSpec extends CompileSpec {
       }""" must compile.to(containTree(
         q"""
           class A(val inner: Tret) extends Tret {
-            def a(value: Int) = A.this.inner.a(value)
+            override def a(value: Int) = A.this.inner.a(value)
           }"""
       ))
   }
@@ -25,7 +25,7 @@ class DelegertSpec extends CompileSpec {
         class A(@delegert.delegert val inner: Tret) extends Tret
       }""" must compile.to(containTree(
         q"""class A(val inner: Tret) extends Tret {
-          def no = A.this.inner.no
+          override def no = A.this.inner.no
         }"""
       ))
   }
@@ -37,10 +37,11 @@ class DelegertSpec extends CompileSpec {
         class A(@delegert.delegert val inner: Tret) extends Tret
       }""" must compile.to(containTree(
         q"""class A(val inner: Tret) extends Tret {
-          def jo(a: Int) = A.this.inner.jo(a)
+          override def jo(a: Int) = A.this.inner.jo(a)
+          override def jo$$default$$1 = A.this.inner.jo$$default$$1
         }"""
       ))
-  }.pendingUntilFixed
+  }
 
   "ignores private methods in trait" >> {
     q"""
@@ -60,7 +61,7 @@ class DelegertSpec extends CompileSpec {
       }""" must compile.to(containTree(
         q"""
           class A(val inner: Tret) extends Tret {
-            def a(i: Int)(j: Int) = A.this.inner.a(i)(j)
+            override def a(i: Int)(j: Int) = A.this.inner.a(i)(j)
           }"""
       ))
   }
@@ -73,7 +74,7 @@ class DelegertSpec extends CompileSpec {
       }""" must compile.to(containTree(
         q"""
           class A(val inner: Tret) extends Tret {
-            def a[T](t: T) = A.this.inner.a[T](t)
+            override def a[T](t: T) = A.this.inner.a[T](t)
           }"""
       ))
   }.pendingUntilFixed
@@ -89,7 +90,7 @@ class DelegertSpec extends CompileSpec {
         q"""
           class A(val inner: Tret) extends Tret {
             def a = 0
-            def b(value: Int) = A.this.inner.b(value)
+            override def b(value: Int) = A.this.inner.b(value)
           }"""
       ))
   }
@@ -104,9 +105,9 @@ class DelegertSpec extends CompileSpec {
       }""" must compile.to(containTree(
         q"""
           class A(val inner: Tret, val inner2: Tret2) extends Tret with Tret2 {
-            def a() = A.this.inner.a()
-            def b() = A.this.inner.b()
-            def c() = A.this.inner2.c()
+            override def a() = A.this.inner.a()
+            override def b() = A.this.inner.b()
+            override def c() = A.this.inner2.c()
           }"""
       ))
   }
@@ -122,7 +123,7 @@ class DelegertSpec extends CompileSpec {
         q"""
           class A(val inner: Tret) extends Tret {
             def a = -1
-            def a(value: Int) = A.this.inner.a(value)
+            override def a(value: Int) = A.this.inner.a(value)
           }"""
       ))
   }

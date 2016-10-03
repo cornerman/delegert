@@ -20,7 +20,7 @@ class DelegertTranslator[C <: Context](val c: C) {
       case Some(tpe) =>
         val ClassDef(mods, name, tparams, Template(parents, self, body)) = embeddingClass
 
-        val methods = tpe.decls.filter(d => d.isMethod && !d.isPrivate).map(_.asMethod)
+        val methods = tpe.decls.filter(d => d.isMethod && !d.isPrivate && !d.isConstructor).map(_.asMethod)
         val existingMethods: Seq[DefDef] = body collect { case d: DefDef => d }
         val missingMethods = methods.filterNot { m =>
           existingMethods.exists(e => e.name == m.name && e.tparams == m.typeParams && e.vparamss == m.paramLists)
@@ -38,7 +38,7 @@ class DelegertTranslator[C <: Context](val c: C) {
             q"$name"
           })
 
-          q"def ${method.name}(...$params) = ${value.name}.${method.name}(...$paramNames)"
+          q"override def ${method.name}(...$params) = ${value.name}.${method.name}(...$paramNames)"
         }
 
         ClassDef(mods, name, tparams, Template(parents, self, body ++ methodsImpls))
