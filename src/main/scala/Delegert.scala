@@ -21,7 +21,7 @@ class DelegertTranslator[C <: Context](val c: C) {
         val ClassDef(mods, name, tparams, Template(parents, self, body)) = embeddingClass
 
         val methods = tpe.decls.filter(d => d.isMethod && !d.isPrivate && !d.isConstructor).map(_.asMethod)
-        val existingMethods: Seq[DefDef] = body collect { case d: DefDef => d }
+        val existingMethods = body collect { case d: DefDef => d }
         val missingMethods = methods.filterNot { m =>
           existingMethods.exists(e => e.name == m.name && e.tparams == m.typeParams && e.vparamss == m.paramLists)
         }
@@ -30,15 +30,20 @@ class DelegertTranslator[C <: Context](val c: C) {
           val params = method.paramLists.map(_.map { param =>
             val name = TermName(param.name.toString)
             val tpe = param.typeSignature
+
             q"val $name: $tpe"
           })
 
-          val paramNames = method.paramLists.map(_.map { param =>
-            val name = TermName(param.name.toString)
-            q"$name"
-          })
+          val paramArgs = method.paramLists.map(_.map(_.name))
 
-          q"override def ${method.name}(...$params) = ${value.name}.${method.name}(...$paramNames)"
+          val tparams = {
+            import compat._ // TODO
+            method.typeParams.map(TypeDef(_))
+          }
+
+          val tparamArgs = method.typeParams.map(_.name)
+
+          q"override def ${method.name}[..$tparams](...$params) = ${value.name}.${method.name}[..$tparamArgs](...$paramArgs)"
         }
 
         ClassDef(mods, name, tparams, Template(parents, self, body ++ methodsImpls))
@@ -55,9 +60,7 @@ class DelegertTranslator[C <: Context](val c: C) {
       case Failure(err) => c.abort(c.enclosingPosition, s"cannot typecheck given expression: $err")
     }
 
-    val t= translate(value, embeddingClass)
-    println(t)
-    t
+    translate(value, embeddingClass)
   }
 }
 

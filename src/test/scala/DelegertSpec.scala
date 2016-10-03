@@ -66,7 +66,20 @@ class DelegertSpec extends CompileSpec {
       ))
   }
 
-  "type parameters" >> {
+  "type parameter without argument" >> {
+    q"""
+      trait Tret { def a[T]: Int }
+      {
+        class A(@delegert.delegert val inner: Tret) extends Tret
+      }""" must compile.to(containTree(
+        q"""
+          class A(val inner: Tret) extends Tret {
+            override def a[T] = A.this.inner.a[T]
+          }"""
+      ))
+  }
+
+  "type parameter with argument" >> {
     q"""
       trait Tret { def a[T](t: T): T }
       {
@@ -75,6 +88,20 @@ class DelegertSpec extends CompileSpec {
         q"""
           class A(val inner: Tret) extends Tret {
             override def a[T](t: T) = A.this.inner.a[T](t)
+          }"""
+      ))
+  }.pendingUntilFixed
+
+  // cannot find type T in ValDef, need to typecheck whole unit?
+  "generic trait" >> {
+    q"""
+      trait Tret[T] { def a(t: T): T }
+      {
+        class A[T](@delegert.delegert val inner: Tret[T]) extends Tret[T]
+      }""" must compile.to(containTree(
+        q"""
+          class A[T](val inner: Tret[T]) extends Tret[T] {
+            override def a(t: T) = A.this.inner.a(t)
           }"""
       ))
   }.pendingUntilFixed
