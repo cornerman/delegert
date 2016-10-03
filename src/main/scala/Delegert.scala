@@ -27,13 +27,18 @@ class DelegertTranslator[C <: Context](val c: C) {
         }
 
         val methodsImpls = missingMethods.map { method =>
-          val (params, paramNames) = method.paramLists.headOption.map(_.map { param => //TODO multi paramlists
-            val tpe = param.typeSignature
+          val params = method.paramLists.map(_.map { param =>
             val name = TermName(param.name.toString)
-            (q"$name: $tpe", q"$name")
-          }.unzip).getOrElse((List.empty, List.empty))
+            val tpe = param.typeSignature
+            q"val $name: $tpe"
+          })
 
-          q"def ${method.name}(..$params) = ${value.name}.${method.name}(..$paramNames)"
+          val paramNames = method.paramLists.map(_.map { param =>
+            val name = TermName(param.name.toString)
+            q"$name"
+          })
+
+          q"def ${method.name}(...$params) = ${value.name}.${method.name}(...$paramNames)"
         }
 
         ClassDef(mods, name, tparams, Template(parents, self, body ++ methodsImpls))
@@ -50,7 +55,9 @@ class DelegertTranslator[C <: Context](val c: C) {
       case Failure(err) => c.abort(c.enclosingPosition, s"cannot typecheck given expression: $err")
     }
 
-    translate(value, embeddingClass)
+    val t= translate(value, embeddingClass)
+    println(t)
+    t
   }
 }
 

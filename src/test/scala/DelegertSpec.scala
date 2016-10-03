@@ -5,7 +5,7 @@ class DelegertSpec extends CompileSpec {
   // needs own block around macro usage, as current scope is not accessible in macro expansion: not found type Tret
   // related: https://github.com/aztek/scala-workflow/issues/2
 
-  "works on constructor parameter" >> {
+  "method with one parameter" >> {
     q"""
       trait Tret { def a(value: Int): Int }
       {
@@ -17,6 +17,30 @@ class DelegertSpec extends CompileSpec {
           }"""
       ))
   }
+
+  "method without brackets" >> {
+    q"""
+      trait Tret { def no: Int }
+      {
+        class A(@delegert.delegert val inner: Tret) extends Tret
+      }""" must compile.to(containTree(
+        q"""class A(val inner: Tret) extends Tret {
+          def no = A.this.inner.no
+        }"""
+      ))
+  }
+
+  "method with default arguments" >> {
+    q"""
+      trait Tret { def jo(a: Int = 1): Int }
+      {
+        class A(@delegert.delegert val inner: Tret) extends Tret
+      }""" must compile.to(containTree(
+        q"""class A(val inner: Tret) extends Tret {
+          def jo(a: Int) = A.this.inner.jo(a)
+        }"""
+      ))
+  }.pendingUntilFixed
 
   "ignores private methods in trait" >> {
     q"""
@@ -39,7 +63,7 @@ class DelegertSpec extends CompileSpec {
             def a(i: Int)(j: Int) = A.this.inner.a(i)(j)
           }"""
       ))
-  }.pendingUntilFixed
+  }
 
   "type parameters" >> {
     q"""
