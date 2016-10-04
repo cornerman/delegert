@@ -3,7 +3,7 @@ package delegert
 import scala.reflect.macros.whitebox.Context
 import scala.language.experimental.macros
 import scala.annotation.{StaticAnnotation, compileTimeOnly}
-import scala.util.{Try => uTry, Success, Failure}
+import scala.util.{Success, Failure}
 
 class DelegertTranslator[C <: Context](val c: C) {
   import c.universe._
@@ -15,52 +15,50 @@ class DelegertTranslator[C <: Context](val c: C) {
     case t => t
   }
 
-  def translate(value: ValueAccessor, embeddingClass: ClassDef): Tree = {
-    Option(value.typeTree.tpe) match {
-      case Some(tpe) =>
-        val ClassDef(mods, name, tparams, Template(parents, self, body)) = embeddingClass
+  def methodToDef(calleeObj: TermName)(method: MethodSymbol): Tree = {
+    val paramArgs = method.paramLists.map(_.map(_.name))
+    val params = method.paramLists.map(_.map { param =>
+      val name = TermName(param.name.toString)
+      val tpe = param.typeSignature
 
-        val methods = tpe.decls.filter(d => d.isMethod && !d.isPrivate && !d.isConstructor).map(_.asMethod)
-        val existingMethods = body collect { case d: DefDef => d }
-        val missingMethods = methods.filterNot { m =>
-          existingMethods.exists(e => e.name == m.name && e.tparams == m.typeParams && e.vparamss == m.paramLists)
-        }
+      q"val $name: $tpe"
+    })
 
-        val methodsImpls = missingMethods.map { method =>
-          val params = method.paramLists.map(_.map { param =>
-            val name = TermName(param.name.toString)
-            val tpe = param.typeSignature
-
-            q"val $name: $tpe"
-          })
-
-          val paramArgs = method.paramLists.map(_.map(_.name))
-
-          val tparams = {
-            import compat._ // TODO
-            method.typeParams.map(TypeDef(_))
-          }
-
-          val tparamArgs = method.typeParams.map(_.name)
-
-          q"override def ${method.name}[..$tparams](...$params) = ${value.name}.${method.name}[..$tparamArgs](...$paramArgs)"
-        }
-
-        ClassDef(mods, name, tparams, Template(parents, self, body ++ methodsImpls))
-      case None => c.abort(c.enclosingPosition, "type tree does not have type")
+    val tparamArgs = method.typeParams.map(_.name)
+    val tparams = {
+      import compat._ // TODO
+      method.typeParams.map(TypeDef(_))
     }
+
+    q"override def ${method.name}[..$tparams](...$params) = ${calleeObj}.${method.name}[..$tparamArgs](...$paramArgs)"
   }
 
-  def translate(utree: Tree, embeddingClass: ClassDef): Tree = {
-    val tree = unmodValDefs(utree)
-    val typedTree = uTry(c.typecheck(tree.duplicate, silent = false, withMacrosDisabled = true))
-    val value = typedTree match {
-      case Success(q"..$mods val $name: $typeTree = $initTree") => ValueAccessor(name, typeTree, initTree)
+  def treeToValueAccessor(moddedTree: Tree): ValueAccessor = {
+    val tree = unmodValDefs(moddedTree)
+    val typedTree = util.Try(c.typecheck(tree.duplicate, withMacrosDisabled = true))
+    typedTree match {
+      case Success(q"..$mods val $name: $typeTree = $initTree") =>
+        if (typeTree.tpe == null || typeTree.tpe == NoType)
+          c.abort(c.enclosingPosition, "type tree does not have type")
+        ValueAccessor(name, typeTree, initTree)
       case Success(_) => c.abort(c.enclosingPosition, "delegert only delegates value accessors")
       case Failure(err) => c.abort(c.enclosingPosition, s"cannot typecheck given expression: $err")
     }
+  }
 
-    translate(value, embeddingClass)
+  def translate(value: ValueAccessor, embeddingClass: ClassDef): Tree = {
+    val ClassDef(mods, name, tparams, Template(parents, self, body)) = embeddingClass
+
+    val existingMethods = body collect { case d: DefDef => d }
+    val neededMethods = value.typeTree.tpe.decls.filter { decl =>
+      decl.isMethod && !decl.isPrivate && !decl.isConstructor
+    }.map(_.asMethod)
+    val missingMethods = neededMethods.filterNot { m =>
+      existingMethods.exists(e => e.name == m.name && e.tparams == m.typeParams && e.vparamss == m.paramLists)
+    }
+
+    val newBody = body ++ missingMethods.map(methodToDef(value.name))
+    ClassDef(mods, name, tparams, Template(parents, self, newBody))
   }
 }
 
@@ -74,14 +72,16 @@ object DelegertMacro {
 
     val translator = DelegertTranslator(c)
     val trees = annottees.map(_.tree)
-    val annottee = trees.head
-    val nextAnnottees = trees.tail.collect {
-      case c: ClassDef => translator.translate(annottee, c)
-      case t => t
-    }
+    trees.headOption map { annottee =>
+      val value = translator.treeToValueAccessor(annottee)
+      val nextAnnottees = trees.tail.collect {
+        case c: ClassDef => translator.translate(value, c)
+        case t => t
+      }
 
-    val outputs = nextAnnottees
-    c.Expr[Any](q"..$outputs")
+      val outputs = nextAnnottees
+      c.Expr[Any](q"..$outputs")
+    } getOrElse(c.abort(c.enclosingPosition, "delegert does not annotate anything"))
   }
 }
 
