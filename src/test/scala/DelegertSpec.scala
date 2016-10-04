@@ -168,6 +168,25 @@ class DelegertSpec extends CompileSpec {
       ))
   }
 
+  "find inherited methods" >> {
+    q"""
+      trait TretsTret { def a: Int }
+      trait Tret extends TretsTret { def b: Int }
+      {
+        class A(@delegert.delegert val inner: Tret) extends Tret
+      }""" must compile.to(containTree(
+        q"""
+          class A(val inner: Tret) extends Tret {
+            override def a = A.this.inner.a
+            override def b = A.this.inner.b
+          }"""
+      ))
+  }
+
+  "wrap Seq[T]" >> {
+    q"class A[T](@delegert.delegert val inner: Seq[T]) extends Seq[T]" must compile
+  }.pendingUntilFixed
+
   // TODO: embedding class?
   // "works on member value" >> {
   //   q"""{trait Tret { def a() = 1 }; trait A { @delegert.delegert val inner: Tret }}""" must compile

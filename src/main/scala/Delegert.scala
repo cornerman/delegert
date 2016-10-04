@@ -36,6 +36,13 @@ class DelegertTranslator[C <: Context](val c: C) {
     q"override def ${methodName}[..$tparams](...$params) = ${value.name}.${methodName}[..$tparamArgs](...$paramArgs)"
   }
 
+  def methodsInType(tpe: Type): Iterable[MethodSymbol] = {
+    val members = tpe.members.toSeq.diff(typeOf[AnyRef].members.toSeq).sortBy(_.name.toString)
+    members.filter { decl =>
+      decl.isMethod && !decl.isPrivate && !decl.isConstructor
+    }.map(_.asMethod)
+  }
+
   def treeToValueAccessor(moddedTree: Tree): ValueAccessor = {
     val tree = unmodValDefs(moddedTree)
     val typedTree = util.Try(c.typecheck(tree.duplicate, withMacrosDisabled = true))
@@ -53,9 +60,7 @@ class DelegertTranslator[C <: Context](val c: C) {
     val ClassDef(mods, name, tparams, Template(parents, self, body)) = embeddingClass
 
     val existingMethods = body collect { case d: DefDef => d }
-    val neededMethods = value.typeTree.tpe.decls.filter { decl =>
-      decl.isMethod && !decl.isPrivate && !decl.isConstructor
-    }.map(_.asMethod)
+    val neededMethods = methodsInType(value.typeTree.tpe)
     val missingMethods = neededMethods.filterNot { m =>
       existingMethods.exists(e => e.name == m.name && e.tparams == m.typeParams && e.vparamss == m.paramLists)
     }
