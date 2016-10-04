@@ -106,6 +106,19 @@ class DelegertSpec extends CompileSpec {
       ))
   }.pendingUntilFixed
 
+  "generic trait and concrete wrapper" >> {
+    q"""
+      trait Tret[T] { def a(t: T): T }
+      {
+        class A(@delegert.delegert val inner: Tret[Int]) extends Tret[Int]
+      }""" must compile.to(containTree(
+        q"""
+          class A(val inner: Tret[scala.Int]) extends Tret[scala.Int] {
+            override def a(t: Int) = A.this.inner.a(t)
+          }"""
+      ))
+  }
+
   "use existing implementations" >> {
     q"""
       trait Tret { def a: Int; def b(value: Int): String }

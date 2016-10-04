@@ -15,7 +15,10 @@ class DelegertTranslator[C <: Context](val c: C) {
     case t => t
   }
 
-  def methodToDef(calleeObj: TermName)(method: MethodSymbol): Tree = {
+  def methodToDef(value: ValueAccessor)(methodSymbol: MethodSymbol): Tree = {
+    val method = methodSymbol.typeSignatureIn(value.typeTree.tpe)
+    val methodName = methodSymbol.name
+
     val paramArgs = method.paramLists.map(_.map(_.name))
     val params = method.paramLists.map(_.map { param =>
       val name = TermName(param.name.toString)
@@ -30,7 +33,7 @@ class DelegertTranslator[C <: Context](val c: C) {
       method.typeParams.map(TypeDef(_))
     }
 
-    q"override def ${method.name}[..$tparams](...$params) = ${calleeObj}.${method.name}[..$tparamArgs](...$paramArgs)"
+    q"override def ${methodName}[..$tparams](...$params) = ${value.name}.${methodName}[..$tparamArgs](...$paramArgs)"
   }
 
   def treeToValueAccessor(moddedTree: Tree): ValueAccessor = {
@@ -57,7 +60,7 @@ class DelegertTranslator[C <: Context](val c: C) {
       existingMethods.exists(e => e.name == m.name && e.tparams == m.typeParams && e.vparamss == m.paramLists)
     }
 
-    val newBody = body ++ missingMethods.map(methodToDef(value.name))
+    val newBody = body ++ missingMethods.map(methodToDef(value: ValueAccessor))
     ClassDef(mods, name, tparams, Template(parents, self, newBody))
   }
 }
