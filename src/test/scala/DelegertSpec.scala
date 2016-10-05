@@ -187,8 +187,21 @@ class DelegertSpec extends CompileSpec {
     q"class A[T](@delegert.delegert val inner: Seq[T]) extends Seq[T]" must compile
   }.pendingUntilFixed
 
-  // TODO: embedding class?
-  // "works on member value" >> {
-  //   q"""{trait Tret { def a() = 1 }; trait A { @delegert.delegert val inner: Tret }}""" must compile
-  // }
+  "works on member value" >> {
+    q"""
+      trait Tret { def a: Int; def b: Int }
+      {
+        trait A extends Tret {
+          @delegert.delegert val inner: Tret = null
+          def a = 2
+        }
+      }""" must compile.to(containTree(
+        q"""
+          trait A extends Tret {
+            val inner: Tret = null
+            override def b = A.this.inner.b
+            def a = 2
+          }"""
+      ))
+  }
 }

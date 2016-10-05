@@ -8,15 +8,24 @@ import scala.util.{Success, Failure}
 class DelegertTranslator[C <: Context](val c: C) {
   import c.universe._
 
-  case class ValueAccessor(name: TermName, typeTree: Tree, initTree: Tree)
+  case class ValueAccessor(name: TermName, tpe: Type)
+  case class MethodInfo(name: TermName, paramLists: List[List[Symbol]], typeParams: List[Symbol])
 
-  def unmodValDefs(tree: Tree): Tree = tree match {
-    case ValDef(_, name, tpe, init) => ValDef(Modifiers(), name, tpe, init)
-    case t => t
+  def symbolOwnerChain(sym: Symbol): List[Symbol] = {
+    sym.owner match {
+      case NoSymbol => sym :: Nil
+      case owner => sym :: symbolOwnerChain(owner)
+    }
+  }
+
+  def enclosingOwnerClasses: Seq[ClassSymbol] = {
+    val owner = c.internal.enclosingOwner
+    val ownerChain = symbolOwnerChain(owner)
+    ownerChain collect { case s: ClassSymbol => s }
   }
 
   def methodToDef(value: ValueAccessor)(methodSymbol: MethodSymbol): Tree = {
-    val method = methodSymbol.typeSignatureIn(value.typeTree.tpe)
+    val method = methodSymbol.typeSignatureIn(value.tpe)
     val methodName = methodSymbol.name
 
     val paramArgs = method.paramLists.map(_.map(_.name))
@@ -43,30 +52,46 @@ class DelegertTranslator[C <: Context](val c: C) {
     }.map(_.asMethod)
   }
 
-  def treeToValueAccessor(moddedTree: Tree): ValueAccessor = {
-    val tree = unmodValDefs(moddedTree)
-    val typedTree = util.Try(c.typecheck(tree.duplicate, withMacrosDisabled = true))
+  def treeToValueAccessor(valDef: ValDef): Either[String, ValueAccessor] = {
+    val unmoddedTree = ValDef(Modifiers(), valDef.name, valDef.tpt, valDef.rhs)
+    val typedTree = util.Try(c.typecheck(unmoddedTree.duplicate, withMacrosDisabled = true))
     typedTree match {
       case Success(q"..$mods val $name: $typeTree = $initTree") =>
-        if (typeTree.tpe == null || typeTree.tpe == NoType)
-          c.abort(c.enclosingPosition, "type tree does not have type")
-        ValueAccessor(name, typeTree, initTree)
-      case Success(_) => c.abort(c.enclosingPosition, "delegert only delegates value accessors")
-      case Failure(err) => c.abort(c.enclosingPosition, s"cannot typecheck given expression: $err")
+        typeTree.tpe match {
+          case null | NoType => Left("type tree does not have type")
+          case tpe => Right(ValueAccessor(name, tpe))
+        }
+      case Success(_) => Left("delegert only delegates value accessors")
+      case Failure(err) => Left(s"cannot typecheck given expression: $err")
     }
   }
 
-  def translate(value: ValueAccessor, embeddingClass: ClassDef): Tree = {
-    val ClassDef(mods, name, tparams, Template(parents, self, body)) = embeddingClass
-
-    val existingMethods = body collect { case d: DefDef => d }
-    val neededMethods = methodsInType(value.typeTree.tpe)
+  def translate(value: ValueAccessor, excludedMethods: Seq[MethodInfo] = Seq.empty): List[Tree] = {
+    val neededMethods = methodsInType(value.tpe)
     val missingMethods = neededMethods.filterNot { m =>
-      existingMethods.exists(e => e.name == m.name && e.tparams == m.typeParams && e.vparamss == m.paramLists)
+      excludedMethods.exists(e => e.name == m.name && e.typeParams == m.typeParams && e.paramLists == m.paramLists)
     }
 
-    val newBody = body ++ missingMethods.map(methodToDef(value: ValueAccessor))
-    ClassDef(mods, name, tparams, Template(parents, self, newBody))
+    missingMethods.map(methodToDef(value)).toList
+  }
+
+  //TODO: crashes on embeddingClass.toType.decls
+  // def translateToMembers(value: ValueAccessor, embeddingClass: ClassSymbol): List[Tree] = {
+  //   val existingMethods = embeddingClass.toType.decls.filter(_.isMethod).map(_.asMethod).toSeq
+  //   val existingMethods = Seq.empty[MethodSymbol]
+  //   translate(value, existingMethods.map(m => MethodInfo(m.name, m.paramLists, m.typeParams)))
+  // }
+
+  def translateToMembers(value: ValueAccessor, embeddingClass: ClassDef): List[Tree] = {
+    val Template(_, _, body) = embeddingClass.impl
+    val existingMethods = body collect { case d: DefDef => d }
+    translate(value, existingMethods.map(m => MethodInfo(m.name, m.vparamss.map(_.map(_.symbol)), m.tparams.map(_.symbol))))
+  }
+
+  def translateToClass(value: ValueAccessor, embeddingClass: ClassDef): ClassDef = {
+    val ClassDef(mods, name, tparams, Template(parents, self, body)) = embeddingClass
+    val members = translateToMembers(value, embeddingClass)
+    ClassDef(mods, name, tparams, Template(parents, self, body ++ members))
   }
 }
 
@@ -75,21 +100,39 @@ object DelegertTranslator {
 }
 
 object DelegertMacro {
+
   def impl(c: Context)(annottees: c.Expr[Any]*): c.Expr[Any] = {
     import c.universe._
 
     val translator = DelegertTranslator(c)
-    val trees = annottees.map(_.tree)
-    trees.headOption map { annottee =>
-      val value = translator.treeToValueAccessor(annottee)
-      val nextAnnottees = trees.tail.collect {
-        case c: ClassDef => translator.translate(value, c)
-        case t => t
-      }
-
-      val outputs = nextAnnottees
-      c.Expr[Any](q"..$outputs")
-    } getOrElse(c.abort(c.enclosingPosition, "delegert does not annotate anything"))
+    annottees.map(_.tree) match {
+      case (valDef: ValDef) :: (classDef: ClassDef) :: rest =>
+        translator.treeToValueAccessor(valDef) match {
+          case Left(err) => c.abort(c.enclosingPosition, err)
+          case Right(value) =>
+            val translated = translator.translateToClass(value, classDef)
+            val outputs = translated +: rest
+            c.Expr[Any](q"..$outputs")
+        }
+      case (valDef: ValDef) :: rest =>
+        // TODO: should use enclosingOwner instead of enclosingClass
+        // val classOpt = translator.enclosingOwnerClasses.headOption
+        val classOpt = Some(c.enclosingClass) collect { case c: ClassDef => c }
+        classOpt match {
+          case None =>
+            c.abort(c.enclosingPosition, "annotated value accessor be embedded in a class definition")
+          case Some(classDef) =>
+            translator.treeToValueAccessor(valDef) match {
+              case Left(err) => c.abort(c.enclosingPosition, err)
+              case Right(value) =>
+                val translated = translator.translateToMembers(value, classDef)
+                val outputs = valDef :: translated ++ rest
+                c.Expr[Any](q"..$outputs")
+            }
+        }
+      case _ =>
+        c.abort(c.enclosingPosition, "delegert can only annotate value accessors")
+    }
   }
 }
 
