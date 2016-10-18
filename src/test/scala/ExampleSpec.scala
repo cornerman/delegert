@@ -17,8 +17,19 @@ class ExampleSpec extends Specification {
     def a() = "myA"
   }
 
-  "let delegert delegate" >> {
+  trait TretWrapTret extends Tret {
+    @delegert val inner: Tret
+    def a() = "myA"
+  }
+
+  "let delegert delegate in class" >> {
     val wrap = new TretWrap(new TretImpl)
+    wrap.a must beEqualTo("myA")
+    wrap.b(1) must beEqualTo("b1")
+  }
+
+  "let delegert delegate in trait" >> {
+    val wrap = new TretWrapTret { val inner = new TretImpl }
     wrap.a must beEqualTo("myA")
     wrap.b(1) must beEqualTo("b1")
   }
