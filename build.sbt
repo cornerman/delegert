@@ -7,7 +7,7 @@ addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.fu
 
 libraryDependencies ++=
   "org.scala-lang" % "scala-reflect" % scalaVersion.value ::
-  "com.github.cornerman" %% "macroni" % "0.0.1" % "test" ::
+  "com.github.cornerman" %% "macroni" % "0.0.1-SNAPSHOT" % "test" ::
   "org.specs2" %% "specs2-core" % "3.8.4" % "test" ::
   "org.specs2" %% "specs2-mock" % "3.8.4" % "test" ::
   Nil
