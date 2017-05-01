@@ -24,3 +24,30 @@ scalacOptions ++=
   "-Xlint:_" ::
   "-Ywarn-unused" ::
   Nil
+
+organization in Global := "com.github.cornerman"
+
+pgpSecretRing in Global := file("secring.gpg")
+pgpPublicRing in Global := file("pubring.gpg")
+pgpPassphrase in Global := Some("".toCharArray)
+
+pomExtra := {
+  <url>https://github.com/cornerman/delegert</url>
+  <licenses>
+    <license>
+      <name>The MIT license</name>
+      <url>http://www.opensource.org/licenses/mit-license.php</url>
+    </license>
+  </licenses>
+  <scm>
+    <url>https://github.com/cornerman/delegert</url>
+    <connection>scm:git:git@github.com:cornerman/delegert.git</connection>
+  </scm>
+  <developers>
+    <developer>
+      <id>jkaroff</id>
+      <name>Johannes Karoff</name>
+      <url>https://github.com/cornerman</url>
+    </developer>
+  </developers>
+}
