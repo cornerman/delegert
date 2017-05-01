@@ -82,7 +82,7 @@ class DelegertTranslator[C <: Context](val c: C) {
   //   translate(value, existingMethods.map(m => MethodInfo(m.name, m.paramLists, m.typeParams)))
   // }
 
-  def translateToMembers(value: ValueAccessor, embeddingClass: ClassDef): List[Tree] = {
+  def translateToMembers(value: ValueAccessor, embeddingClass: ImplDef): List[Tree] = {
     val Template(_, _, body) = embeddingClass.impl
     val existingMethods = body collect { case d: DefDef => d }
     translate(value, existingMethods.map(m => MethodInfo(m.name, m.vparamss.map(_.map(_.symbol)), m.tparams.map(_.symbol))))
@@ -117,10 +117,10 @@ object DelegertMacro {
       case (valDef: ValDef) :: rest =>
         // TODO: should use enclosingOwner instead of enclosingClass
         // val classOpt = translator.enclosingOwnerClasses.headOption
-        val classOpt = Some(c.enclosingClass) collect { case c: ClassDef => c }
+        val classOpt = Some(c.enclosingClass) collect { case c: ImplDef => c }
         classOpt match {
           case None =>
-            c.abort(c.enclosingPosition, "annotated value accessor be embedded in a class definition")
+            c.abort(c.enclosingPosition, "annotated value accessor be embedded in a impl definition")
           case Some(classDef) =>
             translator.treeToValueAccessor(valDef) match {
               case Left(err) => c.abort(c.enclosingPosition, err)

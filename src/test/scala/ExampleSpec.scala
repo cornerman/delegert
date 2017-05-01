@@ -13,23 +13,34 @@ class TretImpl extends Tret {
 class ExampleSpec extends Specification {
   import delegert.delegert
 
-  class TretWrap(@delegert val inner: Tret) extends Tret {
+  class ClassWrap(@delegert val inner: Tret) extends Tret {
     def a() = "myA"
   }
 
-  trait TretWrapTret extends Tret {
+  trait TraitWrap extends Tret {
     @delegert val inner: Tret
     def a() = "myA"
   }
 
+  object ObjectWrap extends Tret {
+    @delegert val inner: Tret = new TretImpl
+    def a() = "myA"
+  }
+
   "let delegert delegate in class" >> {
-    val wrap = new TretWrap(new TretImpl)
+    val wrap = new ClassWrap(new TretImpl)
     wrap.a must beEqualTo("myA")
     wrap.b(1) must beEqualTo("b1")
   }
 
   "let delegert delegate in trait" >> {
-    val wrap = new TretWrapTret { val inner = new TretImpl }
+    val wrap = new TraitWrap { val inner = new TretImpl }
+    wrap.a must beEqualTo("myA")
+    wrap.b(1) must beEqualTo("b1")
+  }
+
+  "let delegert delegate in object" >> {
+    val wrap = ObjectWrap
     wrap.a must beEqualTo("myA")
     wrap.b(1) must beEqualTo("b1")
   }
