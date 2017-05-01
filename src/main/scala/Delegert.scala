@@ -57,7 +57,6 @@ class DelegertTranslator[C <: Context](val c: C) {
 
   def methodsInType(tpe: Type): Iterable[MethodSymbol] = {
     val members = tpe.members.toSeq.diff(typeOf[AnyRef].members.toSeq).sortBy(_.name.toString)
-    println(members.map(_.name.toString).toList)
     members.filter { decl =>
       decl.isMethod && !decl.isPrivate && !decl.isProtectedThis && !decl.isConstructor
     }.map(_.asMethod).filter(m => !config.onlyVals || m.isGetter)
