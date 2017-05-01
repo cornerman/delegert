@@ -10,6 +10,8 @@ class TretImpl extends Tret {
   def b(v: Int) = "b" + v
 }
 
+case class Data(x: Int)
+
 class ExampleSpec extends Specification {
   import delegert.delegert
 
@@ -27,6 +29,8 @@ class ExampleSpec extends Specification {
     def a() = "myA"
   }
 
+  class DataWrap(@delegert(vals) val inner: Data)
+
   "let delegert delegate in class" >> {
     val wrap = new ClassWrap(new TretImpl)
     wrap.a must beEqualTo("myA")
@@ -43,5 +47,10 @@ class ExampleSpec extends Specification {
     val wrap = ObjectWrap
     wrap.a must beEqualTo("myA")
     wrap.b(1) must beEqualTo("b1")
+  }
+
+  "let delegert delegate to case class" >> {
+    val wrap = new DataWrap(Data(3))
+    wrap.x must beEqualTo(3)
   }
 }

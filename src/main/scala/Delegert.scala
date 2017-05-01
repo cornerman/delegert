@@ -10,6 +10,16 @@ class DelegertTranslator[C <: Context](val c: C) {
 
   case class ValueAccessor(name: TermName, tpe: Type)
   case class MethodInfo(name: TermName, paramLists: List[List[Symbol]], typeParams: List[Symbol])
+  case class Config(onlyVals: Boolean)
+
+  val config: Config = c.prefix.tree match {
+    case Apply(_, args) => args match {
+      case Ident(TermName("vals")) :: Nil => Config(onlyVals = true)
+      case Nil => Config(onlyVals = false)
+      case _ => c.abort(c.enclosingPosition, "invalid argument, expected: vals")
+    }
+    case _ => c.abort(c.enclosingPosition, "unexpected invocation")
+  }
 
   def symbolOwnerChain(sym: Symbol): List[Symbol] = {
     sym.owner match {
@@ -42,14 +52,15 @@ class DelegertTranslator[C <: Context](val c: C) {
       method.typeParams.map(TypeDef(_))
     }
 
-    q"override def ${methodName}[..$tparams](...$params) = ${value.name}.${methodName}[..$tparamArgs](...$paramArgs)"
+    q"def ${methodName}[..$tparams](...$params) = ${value.name}.${methodName}[..$tparamArgs](...$paramArgs)"
   }
 
   def methodsInType(tpe: Type): Iterable[MethodSymbol] = {
     val members = tpe.members.toSeq.diff(typeOf[AnyRef].members.toSeq).sortBy(_.name.toString)
+    println(members.map(_.name.toString).toList)
     members.filter { decl =>
-      decl.isMethod && !decl.isPrivate && !decl.isConstructor
-    }.map(_.asMethod)
+      decl.isMethod && !decl.isPrivate && !decl.isProtectedThis && !decl.isConstructor
+    }.map(_.asMethod).filter(m => !config.onlyVals || m.isGetter)
   }
 
   def treeToValueAccessor(valDef: ValDef): Either[String, ValueAccessor] = {
