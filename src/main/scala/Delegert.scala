@@ -47,10 +47,7 @@ class DelegertTranslator[C <: Context](val c: C) {
     })
 
     val tparamArgs = method.typeParams.map(_.name)
-    val tparams = {
-      import compat._ // TODO
-      method.typeParams.map(TypeDef(_))
-    }
+    val tparams = method.typeParams.map(internal.typeDef(_))
 
     q"def ${methodName}[..$tparams](...$params) = ${value.name}.${methodName}[..$tparamArgs](...$paramArgs)"
   }
