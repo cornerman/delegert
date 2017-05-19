@@ -21,18 +21,18 @@ class DelegertTranslator[C <: Context](val c: C) {
     case _ => c.abort(c.enclosingPosition, "unexpected invocation")
   }
 
-  def symbolOwnerChain(sym: Symbol): List[Symbol] = {
-    sym.owner match {
-      case NoSymbol => sym :: Nil
-      case owner => sym :: symbolOwnerChain(owner)
-    }
-  }
+  // def symbolOwnerChain(sym: Symbol): List[Symbol] = {
+  //   sym.owner match {
+  //     case NoSymbol => sym :: Nil
+  //     case owner => sym :: symbolOwnerChain(owner)
+  //   }
+  // }
 
-  def enclosingOwnerClasses: Seq[ClassSymbol] = {
-    val owner = c.internal.enclosingOwner
-    val ownerChain = symbolOwnerChain(owner)
-    ownerChain collect { case s: ClassSymbol => s }
-  }
+  // def enclosingOwnerClasses: Seq[ClassSymbol] = {
+  //   val owner = c.internal.enclosingOwner
+  //   val ownerChain = symbolOwnerChain(owner)
+  //   ownerChain collect { case s: ClassSymbol => s }
+  // }
 
   def methodToDef(value: ValueAccessor)(methodSymbol: MethodSymbol): Tree = {
     val method = methodSymbol.typeSignatureIn(value.tpe)
