@@ -60,10 +60,12 @@ class DelegertTranslator[C <: Context](val c: C) {
   }
 
   def treeToValueAccessor(valDef: ValDef): Either[String, ValueAccessor] = {
-    val unmoddedTree = ValDef(Modifiers(), valDef.name, valDef.tpt, valDef.rhs)
+    val unmoddedTree = q"""trait Test {
+      ${ValDef(Modifiers(), valDef.name, valDef.tpt, valDef.rhs)}
+    }"""
     val typedTree = util.Try(c.typecheck(unmoddedTree.duplicate, withMacrosDisabled = true))
     typedTree match {
-      case Success(q"..$mods val $name: $typeTree = $initTree") =>
+      case Success(q"trait Test { val $name: $typeTree = $initTree }") =>
         typeTree.tpe match {
           case null | NoType => Left("type tree does not have type")
           case tpe => Right(ValueAccessor(name, tpe))
