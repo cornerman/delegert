@@ -1,53 +1,24 @@
-# delegert
+# Steps to reproduce
 
-delegert delegates things...in scala
+A macro annotation with paradise, which typechecks an annotated `ValDef`.
 
-# usage
-
-Dependency in build.sbt:
-```
-resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
-
-libraryDependencies += "com.github.cornerman" %% "delegert" % "0.1.0-SNAPSHOT"
-
-addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.full)
+Works in scala 2.11.11:
+```sh
+sbt ++2.11.11 test
 ```
 
-# example
+Does not work in scala 2.12.2:
+```sh
+sbt ++2.12.2 test
+```
 
-Annotate class or trait members and let delegert implement delegate methods.
+which leads to:
+```
+[error] [0] /scala/ExampleSpec.scala:6: illegal cyclic reference involving class Wrap
+```
 
+[Failing code](https://github.com/cornerman/delegert/blob/cyclic-reference-2.12/src/main/scala/Delegert.scala#L20):
 ```scala
-trait Tret {
-  def a(): String
-  def b(v: Int): String
-}
-
-object Example {
-  import delegert.delegert
-
-  class TretWrap(@delegert val inner: Tret) extends Tret {
-    def a() = "myA"
-  }
-
-  trait TretWrapTret extends Tret {
-    @delegert val inner: Tret
-    def a() = "myA"
-  }
-}
-```
-
-This generates the following implementation of TretWrap:
-
-```scala
-  class TretWrap(val inner: Tret) extends Tret {
-    def a() = "myA"
-    def b(v: Int) = inner.b(v)
-  }
-
-  trait TretWrapTret extends Tret {
-    val inner: Tret
-    def a() = "myA"
-    def b(v: Int) = inner.b(v)
-  }
+val unmodValDef = ValDef(Modifiers(), valDef.name, valDef.tpt, valDef.rhs)
+c.typecheck(unmodValDef, withMacrosDisabled = true)
 ```

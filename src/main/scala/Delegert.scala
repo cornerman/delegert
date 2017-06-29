@@ -19,7 +19,7 @@ object Macro {
         val unmodValDef = ValDef(Modifiers(), valDef.name, valDef.tpt, valDef.rhs)
         c.typecheck(unmodValDef, withMacrosDisabled = true)
 
-        ???
+        annottees.head
       case _ => c.abort(c.enclosingPosition, "unsupported annotation")
     }
   }
