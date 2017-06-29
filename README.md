@@ -1,6 +1,6 @@
 # Steps to reproduce
 
-A macro annotation with paradise, which typechecks an annotated `ValDef`.
+[A macro annotation](https://github.com/cornerman/delegert/blob/cyclic-reference-2.12/src/main/scala/Delegert.scala) with paradise, which typechecks an annotated `ValDef`.
 
 Works in scala 2.11.11:
 ```sh
