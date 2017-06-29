@@ -14,7 +14,7 @@ sbt ++2.12.2 test
 
 which leads to:
 ```
-[error] [0] /scala/ExampleSpec.scala:6: illegal cyclic reference involving class Wrap
+[error] [0] /scala/ExampleSpec.scala:7: illegal cyclic reference involving class Wrap
 ```
 
 [Failing code](https://github.com/cornerman/delegert/blob/cyclic-reference-2.12/src/main/scala/Delegert.scala#L20):
