@@ -1,7 +1,7 @@
 name := "delegert"
 version := "0.1.0-SNAPSHOT"
 
-scalaVersion := "2.11.11"
+scalaVersion := "2.12.2"
 crossScalaVersions := Seq("2.11.11", "2.12.2")
 
 addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.full)
@@ -10,9 +10,7 @@ resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repos
 
 libraryDependencies ++=
   "org.scala-lang" % "scala-reflect" % scalaVersion.value ::
-  "com.github.cornerman" %% "macroni" % "0.1.0-SNAPSHOT" % "test" ::
   "org.specs2" %% "specs2-core" % "3.8.9" % "test" ::
-  "org.specs2" %% "specs2-mock" % "3.8.9" % "test" ::
   Nil
 
 scalacOptions ++=
