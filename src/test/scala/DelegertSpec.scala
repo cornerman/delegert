@@ -5,6 +5,21 @@ class DelegertSpec extends CompileSpec {
   // needs own block around macro usage, as current scope is not accessible in macro expansion: not found type Tret
   // related: https://github.com/aztek/scala-workflow/issues/2
 
+  "with different Type and implicit return" >> {
+    q"""
+      trait Tret { def a(value: Int): String }
+      trait Diff { def a(value: Int): Int }
+      {
+        implicit def intToString(i: Int): String = i.toString
+        class A(@delegert.delegert val inner: Diff) extends Tret
+      }""" must compile.to(containTree(
+        q"""
+          class A(val inner: Diff) extends Tret {
+            def a(value: Int) = intToString(A.this.inner.a(value))
+          }"""
+      ))
+  }
+
   "method with one parameter" >> {
     q"""
       trait Tret { def a(value: Int): Int }
